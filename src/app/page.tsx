@@ -1,971 +1,251 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Quiz, Question, QuestionType, FlowNode, Result, QuizDesign, defaultDesign, questionTypes } from '@/types/quiz';
+import { Quiz, Question, QuestionType, Result, QuizDesign, questionTypes } from '@/types/quiz';
+
+const defaultLightDesign: QuizDesign = {
+  primaryColor: '#6366f1', accentColor: '#06b6d4', backgroundColor: '#f8fafc',
+  fontFamily: 'DM Sans', buttonStyle: 'rounded', buttonColor: '#6366f1',
+  textColor: '#1e293b', showProgress: true, showTimer: false,
+};
 
 const templates: Record<string, Quiz> = {
-  onboarding: {
-    id: 'onboarding',
-    title: 'Онбординг',
-    description: 'Знакомство с пользователем',
-    questions: [
-      { id: '1', type: 'text', question: 'Как вас зовут?', required: true, points: 0 },
-      { id: '2', type: 'email', question: 'Ваш email?', required: true, points: 0 },
-      { id: '3', type: 'multiple_choice', question: 'Откуда узнали о нас?', required: false, points: 5, options: [
-        { id: 'o1', text: 'Соцсети' }, { id: 'o2', text: 'Друзья' }, { id: 'o3', text: 'Поиск' }, { id: 'o4', text: 'Другое' }
-      ]},
-      { id: '4', type: 'multiple_choice', question: 'Какая цель?', required: true, points: 10, options: [
-        { id: 'o1', text: 'Обучение' }, { id: 'o2', text: 'Работа' }, { id: 'o3', text: 'Хобби' }, { id: 'o4', text: 'Другое' }
-      ]},
-      { id: '5', type: 'scale', question: 'Насколько серьезно?', required: true, points: 10, min: 1, max: 10 },
-    ],
-    flow: [],
-    results: [],
-    design: defaultDesign,
-    settings: { shuffleQuestions: false, showResults: true, collectEmail: true }
-  },
-  knowledge_test: {
-    id: 'knowledge_test',
-    title: 'Тест знаний',
-    description: 'Проверка знаний по теме',
-    questions: [
-      { id: '1', type: 'multiple_choice', question: 'Вопрос 1', required: true, points: 10, options: [
-        { id: 'o1', text: 'Правильный ответ', points: 10 }, { id: 'o2', text: 'Неправильный' }, { id: 'o3', text: 'Неправильный' }
-      ]},
-      { id: '2', type: 'multiple_choice', question: 'Вопрос 2', required: true, points: 10, options: [
-        { id: 'o1', text: 'Вариант А' }, { id: 'o2', text: 'Вариант Б', points: 10 }, { id: 'o3', text: 'Вариант В' }
-      ]},
-      { id: '3', type: 'yes_no', question: 'Верно ли утверждение?', required: true, points: 10 },
-      { id: '4', type: 'rating', question: 'Оцените сложность', required: false, points: 5 },
-    ],
-    flow: [],
-    results: [
-      { id: 'r1', title: 'Отлично!', description: 'Вы прошли тест', minScore: 80, maxScore: 100 },
-      { id: 'r2', title: 'Хорошо', description: 'Неплохой результат', minScore: 50, maxScore: 79 },
-      { id: 'r3', title: 'Попробуйте еще', description: 'Нужно больше практики', minScore: 0, maxScore: 49 },
-    ],
-    design: defaultDesign,
-    settings: { shuffleQuestions: true, showResults: true, collectEmail: false }
-  },
-  lead_magnet: {
-    id: 'lead_magnet',
-    title: 'Лид-магнит',
-    description: 'Сбор контактов',
-    questions: [
-      { id: '1', type: 'text', question: 'Ваше имя', required: true, points: 0 },
-      { id: '2', type: 'email', question: 'Email для отправки', required: true, points: 0 },
-      { id: '3', type: 'multiple_choice', question: 'Интересует?', required: true, points: 5, options: [
-        { id: 'o1', text: 'Да, очень' }, { id: 'o2', text: 'Немного' }, { id: 'o3', text: 'Нет' }
-      ]},
-    ],
-    flow: [],
-    results: [],
-    design: defaultDesign,
-    settings: { shuffleQuestions: false, showResults: true, collectEmail: true }
-  },
-  product_fit: {
-    id: 'product_fit',
-    title: 'Product-Market Fit',
-    description: 'Оценка потребности в продукте',
-    questions: [
-      { id: '1', type: 'text', question: 'Какую проблему решаете?', required: true, points: 0 },
-      { id: '2', type: 'scale', question: 'Насколько это болезненно?', required: true, points: 10, min: 1, max: 10 },
-      { id: '3', type: 'multiple_choice', question: 'Сколько платили за подобное?', required: false, points: 10, options: [
-        { id: 'o1', text: 'Бесплатно' }, { id: 'o2', text: 'До 1000₽' }, { id: 'o3', text: '1000-5000₽' }, { id: 'o4', text: 'Больше' }
-      ]},
-      { id: '4', type: 'multiple_choice', question: 'Готовы платить за решение?', required: true, points: 20, options: [
-        { id: 'o1', text: 'Да' }, { id: 'o2', text: 'Возможно' }, { id: 'o3', text: 'Нет' }
-      ]},
-    ],
-    flow: [],
-    results: [
-      { id: 'r1', title: 'Высокий PMF', description: 'Отличный продукт!', minScore: 70, maxScore: 100 },
-      { id: 'r2', title: 'Средний PMF', description: 'Есть над чем работать', minScore: 40, maxScore: 69 },
-      { id: 'r3', title: 'Низкий PMF', description: 'Нужно пересмотреть продукт', minScore: 0, maxScore: 39 },
-    ],
-    design: defaultDesign,
-    settings: { shuffleQuestions: false, showResults: true, collectEmail: true }
-  },
-  survey: {
-    id: 'survey',
-    title: 'Опрос',
-    description: 'Сбор обратной связи',
-    questions: [
-      { id: '1', type: 'rating', question: 'Общая оценка', required: true, points: 0 },
-      { id: '2', type: 'multiple_choice', question: 'Что понравилось?', required: false, points: 0, options: [
-        { id: 'o1', text: 'Дизайн' }, { id: 'o2', text: 'Функционал' }, { id: 'o3', text: 'Поддержка' }, { id: 'o4', text: 'Другое' }
-      ]},
-      { id: '3', type: 'text', question: 'Что улучшить?', required: false, points: 0 },
-      { id: '4', type: 'yes_no', question: 'Рекомендуете?', required: true, points: 10 },
-    ],
-    flow: [],
-    results: [],
-    design: defaultDesign,
-    settings: { shuffleQuestions: false, showResults: false, collectEmail: false }
-  },
   personality: {
-    id: 'personality',
-    title: 'Тип личности',
-    description: 'Определение типа',
+    id: 'personality', title: 'Тип личности', description: 'Узнай свой характер',
     questions: [
-      { id: '1', type: 'multiple_choice', question: 'Как работаете?', required: true, points: 10, options: [
-        { id: 'o1', text: 'В команде' }, { id: 'o2', text: 'Самостоятельно' }, { id: 'o3', text: 'В паре' }
-      ]},
-      { id: '2', type: 'multiple_choice', question: 'Что важнее?', required: true, points: 10, options: [
-        { id: 'o1', text: 'Результат' }, { id: 'o2', text: 'Процесс' }, { id: 'o3', text: 'Отношения' }
-      ]},
-      { id: '3', type: 'multiple_choice', question: 'Как принимаете решения?', required: true, points: 10, options: [
-        { id: 'o1', text: 'Быстро' }, { id: 'o2', text: 'Обдумываю' }, { id: 'o3', text: 'Советуюсь' }
-      ]},
-      { id: '4', type: 'multiple_choice', question: 'Стратегия?', required: true, points: 10, options: [
-        { id: 'o1', text: 'Планирование' }, { id: 'o2', text: 'Импровизация' }, { id: 'o3', text: 'Адаптация' }
-      ]},
+      { id: '1', type: 'multiple_choice', question: 'Как восстанавливаете энергию?', required: true, points: 10, options: [{ id: 'o1', text: 'Общение' }, { id: 'o2', text: 'Уединение' }, { id: 'o3', text: 'Спорт' }, { id: 'o4', text: 'Отдых' }] },
+      { id: '2', type: 'scale', question: 'Насколько открыты новому?', required: true, points: 10, min: 1, max: 10 },
+      { id: '3', type: 'multiple_choice', question: 'Что важнее в работе?', required: true, points: 10, options: [{ id: 'o1', text: 'Стабильность' }, { id: 'o2', text: 'Творчество' }, { id: 'o3', text: 'Карьера' }, { id: 'o4', text: 'Смысл' }] },
+      { id: '4', type: 'scale', question: 'Насколько эмоциональны?', required: true, points: 10, min: 1, max: 10 },
+      { id: '5', type: 'yes_no', question: 'Легко заводите друзей?', required: true, points: 10 },
+      { id: '6', type: 'scale', question: 'Насколько амбициозны?', required: true, points: 10, min: 1, max: 10 },
+      { id: '7', type: 'multiple_choice', question: 'Как справляетесь со стрессом?', required: true, points: 10, options: [{ id: 'o1', text: 'Спорт' }, { id: 'o2', text: 'Медитация' }, { id: 'o3', text: 'Работа' }, { id: 'o4', text: 'Общение' }] },
+      { id: '8', type: 'scale', question: 'Уверенность в себе?', required: true, points: 10, min: 1, max: 10 },
+      { id: '9', type: 'yes_no', question: 'Любите командную работу?', required: true, points: 10 },
+      { id: '10', type: 'scale', question: 'Насколько организованы?', required: true, points: 10, min: 1, max: 10 },
+      { id: '11', type: 'multiple_choice', question: 'Что мотивирует?', required: true, points: 10, options: [{ id: 'o1', text: 'Деньги' }, { id: 'o2', text: 'Признание' }, { id: 'o3', text: 'Свобода' }, { id: 'o4', text: 'Помощь' }] },
+      { id: '12', type: 'scale', question: 'Рискованность?', required: true, points: 10, min: 1, max: 10 },
     ],
     flow: [],
     results: [
-      { id: 'r1', title: 'Лидер', description: 'Вы — прирожденный лидер', minScore: 30, maxScore: 40 },
-      { id: 'r2', title: 'Аналитик', description: 'Вы — думающий стратег', minScore: 20, maxScore: 29 },
-      { id: 'r3', title: 'Командный игрок', description: 'Вы — душа команды', minScore: 10, maxScore: 19 },
+      { id: 'r1', title: 'Лидер', description: 'Вы — прирождённый лидер. Рекомендуем: развивать навыки публичных выступлений.', minScore: 90, maxScore: 120 },
+      { id: 'r2', title: 'Творец', description: 'Вы — креативная личность. Рекомендуем: искать проекты с творческой свободой.', minScore: 70, maxScore: 89 },
+      { id: 'r3', title: 'Практик', description: 'Вы — надёжный человек. Рекомендуем: развивать гибкость.', minScore: 50, maxScore: 69 },
+      { id: 'r4', title: 'Исследователь', description: 'Вы — глубокий мыслитель. Рекомендуем: баланс социализации и уединения.', minScore: 0, maxScore: 49 },
     ],
-    design: defaultDesign,
-    settings: { shuffleQuestions: false, showResults: true, collectEmail: false }
+    design: defaultLightDesign,
+    settings: { shuffleQuestions: false, showResults: true, collectEmail: true }
+  },
+  mental_health: {
+    id: 'mental_health', title: 'Ментальное здоровье', description: 'Проверь своё состояние',
+    questions: [
+      { id: '1', type: 'scale', question: 'Уровень стресса?', required: true, points: 10, min: 1, max: 10 },
+      { id: '2', type: 'yes_no', question: 'Проблемы со сном?', required: true, points: 10 },
+      { id: '3', type: 'scale', question: 'Частота тревоги?', required: true, points: 10, min: 1, max: 10 },
+      { id: '4', type: 'yes_no', question: 'Постоянная усталость?', required: true, points: 10 },
+      { id: '5', type: 'scale', question: 'Удовлетворённость жизнью?', required: true, points: 10, min: 1, max: 10 },
+      { id: '6', type: 'yes_no', question: 'Есть хобби?', required: true, points: 10 },
+      { id: '7', type: 'scale', question: 'Общение с близкими?', required: true, points: 10, min: 1, max: 10 },
+      { id: '8', type: 'yes_no', question: 'Чувствуете поддержку?', required: true, points: 10 },
+      { id: '9', type: 'scale', question: 'Контроль эмоций?', required: true, points: 10, min: 1, max: 10 },
+      { id: '10', type: 'yes_no', question: 'Занимаетесь спортом?', required: true, points: 10 },
+      { id: '11', type: 'scale', question: 'Здоровое питание?', required: true, points: 10, min: 1, max: 10 },
+      { id: '12', type: 'yes_no', question: 'Есть цель в жизни?', required: true, points: 10 },
+      { id: '13', type: 'scale', question: 'Уровень счастья?', required: true, points: 10, min: 1, max: 10 },
+      { id: '14', type: 'yes_no', question: 'Была подавленность?', required: true, points: 10 },
+      { id: '15', type: 'text', question: 'Что беспокоит?', required: false, points: 0 },
+    ],
+    flow: [],
+    results: [
+      { id: 'r1', title: 'Отлично', description: 'У вас всё прекрасно! Продолжайте в том же духе.', minScore: 110, maxScore: 150 },
+      { id: 'r2', title: 'Хорошо', description: 'Всё в порядке. Больше внимания сну и снижению стресса.', minScore: 80, maxScore: 109 },
+      { id: 'r3', title: 'Средне', description: 'Нужна поддержка. Обратитесь к специалисту.', minScore: 50, maxScore: 79 },
+      { id: 'r4', title: 'Требуется помощь', description: 'Обязательно обратитесь к психологу.', minScore: 0, maxScore: 49 },
+    ],
+    design: defaultLightDesign,
+    settings: { shuffleQuestions: false, showResults: true, collectEmail: true }
+  },
+  calories: {
+    id: 'calories', title: 'Расчёт калорий', description: 'Узнай свою норму',
+    questions: [
+      { id: '1', type: 'multiple_choice', question: 'Пол', required: true, points: 0, options: [{ id: 'o1', text: 'Мужской' }, { id: 'o2', text: 'Женский' }] },
+      { id: '2', type: 'number', question: 'Возраст', required: true, points: 0, placeholder: 'лет' },
+      { id: '3', type: 'number', question: 'Вес', required: true, points: 0, placeholder: 'кг' },
+      { id: '4', type: 'number', question: 'Рост', required: true, points: 0, placeholder: 'см' },
+      { id: '5', type: 'multiple_choice', question: 'Активность?', required: true, points: 10, options: [{ id: 'o1', text: 'Минимальная' }, { id: 'o2', text: 'Лёгкая' }, { id: 'o3', text: 'Умеренная' }, { id: 'o4', text: 'Высокая' }] },
+      { id: '6', type: 'multiple_choice', question: 'Цель?', required: true, points: 10, options: [{ id: 'o1', text: 'Похудеть' }, { id: 'o2', text: 'Поддержать' }, { id: 'o3', text: 'Набрать' }] },
+      { id: '7', type: 'yes_no', question: 'Проблемы с пищеварением?', required: true, points: 5 },
+      { id: '8', type: 'scale', question: 'Приёмов пищи в день?', required: true, points: 5, min: 2, max: 6 },
+      { id: '9', type: 'yes_no', question: 'Пьёте достаточно воды?', required: true, points: 5 },
+      { id: '10', type: 'scale', question: 'Частота фастфуда?', required: true, points: 5, min: 1, max: 10 },
+    ],
+    flow: [],
+    results: [
+      { id: 'r1', title: 'Дефицит', description: 'Ваша норма: 1500-1800 ккал. Больше овощей и белка.', minScore: 0, maxScore: 30 },
+      { id: 'r2', title: 'Поддержание', description: 'Ваша норма: 2000-2200 ккал. Баланс Б/Ж/У 30/30/40%.', minScore: 31, maxScore: 60 },
+      { id: 'r3', title: 'Набор', description: 'Ваша норма: 2500-3000 ккал. Высокий белок.', minScore: 61, maxScore: 100 },
+    ],
+    design: defaultLightDesign,
+    settings: { shuffleQuestions: false, showResults: true, collectEmail: true }
+  },
+  workout_plan: {
+    id: 'workout_plan', title: 'План тренировок', description: 'Составь план под цели',
+    questions: [
+      { id: '1', type: 'multiple_choice', question: 'Главная цель?', required: true, points: 10, options: [{ id: 'o1', text: 'Похудение' }, { id: 'o2', text: 'Набор массы' }, { id: 'o3', text: 'Выносливость' }, { id: 'o4', text: 'Здоровье' }] },
+      { id: '2', type: 'yes_no', question: 'Занимались спортом раньше?', required: true, points: 5 },
+      { id: '3', type: 'multiple_choice', question: 'Дней в неделю?', required: true, points: 10, options: [{ id: 'o1', text: '1-2' }, { id: 'o2', text: '3-4' }, { id: 'o3', text: '5-6' }, { id: 'o4', text: 'Ежедневно' }] },
+      { id: '4', type: 'multiple_choice', question: 'Где тренируетесь?', required: true, points: 5, options: [{ id: 'o1', text: 'Дома' }, { id: 'o2', text: 'В зале' }, { id: 'o3', text: 'На улице' }] },
+      { id: '5', type: 'scale', question: 'Время на тренировку?', required: true, points: 5, min: 15, max: 90 },
+      { id: '6', type: 'yes_no', question: 'Есть проблемы со здоровьем?', required: true, points: 5 },
+      { id: '7', type: 'multiple_choice', question: 'Что развивать?', required: true, points: 10, options: [{ id: 'o1', text: 'Всё тело' }, { id: 'o2', text: 'Верх' }, { id: 'o3', text: 'Ноги' }, { id: 'o4', text: 'Пресс' }] },
+      { id: '8', type: 'scale', question: 'Мотивация?', required: true, points: 10, min: 1, max: 10 },
+      { id: '9', type: 'yes_no', question: 'Есть инвентарь?', required: true, points: 5 },
+      { id: '10', type: 'multiple_choice', question: 'Темп?', required: true, points: 10, options: [{ id: 'o1', text: 'Медленный' }, { id: 'o2', text: 'Умеренный' }, { id: 'o3', text: 'Интенсивный' }, { id: 'o4', text: 'HIIT' }] },
+      { id: '11', type: 'text', question: 'Травмы или болезни?', required: false, points: 0 },
+    ],
+    flow: [],
+    results: [
+      { id: 'r1', title: 'Начинающий', description: '2-3 тренировки по 30 мин. База и осанка.', minScore: 0, maxScore: 50 },
+      { id: 'r2', title: 'Средний', description: '3-4 тренировки по 45 мин. Кардио + силовые.', minScore: 51, maxScore: 80 },
+      { id: 'r3', title: 'Продвинутый', description: '5-6 тренировок по 60+ мин. Высокая интенсивность.', minScore: 81, maxScore: 110 },
+    ],
+    design: defaultLightDesign,
+    settings: { shuffleQuestions: false, showResults: true, collectEmail: true }
+  },
+  nutrition: {
+    id: 'nutrition', title: 'Пищевые привычки', description: 'Проанализируй питание',
+    questions: [
+      { id: '1', type: 'yes_no', question: 'Завтракаете каждый день?', required: true, points: 10 },
+      { id: '2', type: 'scale', question: 'Сколько воды пьёте?', required: true, points: 10, min: 0, max: 10 },
+      { id: '3', type: 'multiple_choice', question: 'Как часто овощи?', required: true, points: 10, options: [{ id: 'o1', text: 'Каждый день' }, { id: 'o2', text: '3-4 раза в неделю' }, { id: 'o3', text: 'Редко' }] },
+      { id: '4', type: 'yes_no', question: 'Едите фрукты?', required: true, points: 10 },
+      { id: '5', type: 'scale', question: 'Как часто фастфуд?', required: true, points: 10, min: 1, max: 10 },
+      { id: '6', type: 'yes_no', question: 'Следите за составом?', required: true, points: 10 },
+      { id: '7', type: 'multiple_choice', question: 'Приёмов пищи?', required: true, points: 10, options: [{ id: 'o1', text: '1-2' }, { id: 'o2', text: '3' }, { id: 'o3', text: '4-5' }] },
+      { id: '8', type: 'scale', question: 'Частота сладкого?', required: true, points: 10, min: 1, max: 10 },
+      { id: '9', type: 'yes_no', question: 'Пьёте алкоголь?', required: true, points: 5 },
+      { id: '10', type: 'yes_no', question: 'Принимаете витамины?', required: true, points: 5 },
+      { id: '11', type: 'text', question: 'Любимые продукты?', required: false, points: 0 },
+    ],
+    flow: [],
+    results: [
+      { id: 'r1', title: 'Отлично', description: 'Здоровые привычки! Продолжайте.', minScore: 80, maxScore: 110 },
+      { id: 'r2', title: 'Хорошо', description: 'Неплохо, но есть что улучшить.', minScore: 60, maxScore: 79 },
+      { id: 'r3', title: 'Нужно улучшение', description: 'Начните с завтрака и воды.', minScore: 40, maxScore: 59 },
+      { id: 'r4', title: 'Требуется пересмотр', description: 'Обратитесь к нутрициологу.', minScore: 0, maxScore: 39 },
+    ],
+    design: defaultLightDesign,
+    settings: { shuffleQuestions: false, showResults: true, collectEmail: true }
+  },
+  sleep: {
+    id: 'sleep', title: 'Качество сна', description: 'Узнай качество сна',
+    questions: [
+      { id: '1', type: 'number', question: 'Сколько часов спите?', required: true, points: 10, placeholder: 'часов' },
+      { id: '2', type: 'yes_no', question: 'Просыпаетесь ночью?', required: true, points: 10 },
+      { id: '3', type: 'scale', question: 'Как быстро засыпаете?', required: true, points: 10, min: 1, max: 10 },
+      { id: '4', type: 'yes_no', question: 'Телефон перед сном?', required: true, points: 10 },
+      { id: '5', type: 'multiple_choice', question: 'Во сколько ложитесь?', required: true, points: 10, options: [{ id: 'o1', text: 'До 21' }, { id: 'o2', text: '21-23' }, { id: 'o3', text: 'После 23' }] },
+      { id: '6', type: 'yes_no', question: 'Кофе после 16:00?', required: true, points: 10 },
+      { id: '7', type: 'scale', question: 'Отдохнувший утром?', required: true, points: 10, min: 1, max: 10 },
+      { id: '8', type: 'yes_no', question: 'Проблемы с засыпанием?', required: true, points: 10 },
+      { id: '9', type: 'multiple_choice', question: 'Качество сна?', required: true, points: 10, options: [{ id: 'o1', text: 'Отлично' }, { id: 'o2', text: 'Хорошо' }, { id: 'o3', text: 'Плохо' }] },
+      { id: '10', type: 'yes_no', question: 'Храп или остановки дыхания?', required: true, points: 10 },
+    ],
+    flow: [],
+    results: [
+      { id: 'r1', title: 'Здоровый сон', description: 'Отлично! Поддерживайте режим.', minScore: 70, maxScore: 100 },
+      { id: 'r2', title: 'Нормальный', description: 'В целом нормально. Уберите гаджеты перед сном.', minScore: 50, maxScore: 69 },
+      { id: 'r3', title: 'Проблемы', description: 'Есть проблемы. Обратитесь к сомнологу.', minScore: 30, maxScore: 49 },
+      { id: 'r4', title: 'Серьёзно', description: 'Нужна консультация врача.', minScore: 0, maxScore: 29 },
+    ],
+    design: defaultLightDesign,
+    settings: { shuffleQuestions: false, showResults: true, collectEmail: true }
+  },
+  productivity: {
+    id: 'productivity', title: 'Продуктивность', description: 'Оцени продуктивность',
+    questions: [
+      { id: '1', type: 'scale', question: 'Задач в день?', required: true, points: 10, min: 1, max: 10 },
+      { id: '2', type: 'yes_no', question: 'Планируете день?', required: true, points: 10 },
+      { id: '3', type: 'scale', question: 'Отвлекаетесь на соцсети?', required: true, points: 10, min: 1, max: 10 },
+      { id: '4', type: 'yes_no', question: 'Делегируете задачи?', required: true, points: 10 },
+      { id: '5', type: 'scale', question: 'Время на важные задачи?', required: true, points: 10, min: 1, max: 10 },
+      { id: '6', type: 'yes_no', question: 'Работаете по выходным?', required: true, points: 5 },
+      { id: '7', type: 'scale', question: 'Довольны продуктивностью?', required: true, points: 10, min: 1, max: 10 },
+      { id: '8', type: 'yes_no', question: 'Есть система задач?', required: true, points: 10 },
+      { id: '9', type: 'yes_no', question: 'Высыпаетесь?', required: true, points: 10 },
+      { id: '10', type: 'multiple_choice', question: 'Что мешает?', required: true, points: 10, options: [{ id: 'o1', text: 'Соцсети' }, { id: 'o2', text: 'Лень' }, { id: 'o3', text: 'Время' }, { id: 'o4', text: 'Совещания' }] },
+    ],
+    flow: [],
+    results: [
+      { id: 'r1', title: 'Высокая', description: 'Отлично организованы!', minScore: 80, maxScore: 105 },
+      { id: 'r2', title: 'Хорошая', description: 'Хороший уровень. Есть резерв.', minScore: 60, maxScore: 79 },
+      { id: 'r3', title: 'Средняя', description: 'Есть куда расти.', minScore: 40, maxScore: 59 },
+      { id: 'r4', title: 'Низкая', description: 'Пора навести порядок!', minScore: 0, maxScore: 39 },
+    ],
+    design: defaultLightDesign,
+    settings: { shuffleQuestions: false, showResults: true, collectEmail: true }
   },
 };
 
-type Tab = 'questions' | 'flow' | 'design' | 'settings';
+type Tab = 'projects' | 'questions' | 'flow' | 'design' | 'settings';
 
 export default function QuizBuilder() {
+  const [view, setView] = useState<'projects' | 'builder'>('projects');
   const [activeTab, setActiveTab] = useState<Tab>('questions');
-  const [quiz, setQuiz] = useState<Quiz>({
-    id: uuidv4(),
-    title: '',
-    description: '',
-    questions: [],
-    flow: [],
-    results: [],
-    design: defaultDesign,
-    settings: { shuffleQuestions: false, showResults: true, collectEmail: false }
-  });
+  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [currentQuiz, setCurrentQuiz] = useState<Quiz | null>(null);
   const [selectedQuestionId, setSelectedQuestionId] = useState<string | null>(null);
   const [draggedQuestion, setDraggedQuestion] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewAnswers, setPreviewAnswers] = useState<Record<string, any>>({});
+  const [previewCurrentQuestion, setPreviewCurrentQuestion] = useState(0);
+  const [previewScore, setPreviewScore] = useState(0);
+  const [showResult, setShowResult] = useState(false);
+  const [textAnswer, setTextAnswer] = useState('');
 
-  const selectedQuestion = quiz.questions.find(q => q.id === selectedQuestionId);
+  useEffect(() => { const saved = localStorage.getItem('quizzes'); if (saved) setQuizzes(JSON.parse(saved)); }, []);
 
-  const applyTemplate = useCallback((templateKey: string) => {
-    const template = templates[templateKey];
-    if (template) {
-      const newQuiz: Quiz = {
-        ...template,
-        id: uuidv4(),
-        questions: template.questions.map(q => ({ ...q, id: uuidv4() })),
-        flow: template.flow.map(f => ({ ...f, id: uuidv4() })),
-        results: template.results.map(r => ({ ...r, id: uuidv4() })),
-        design: { ...template.design },
-      };
-      setQuiz(newQuiz);
-      setSelectedQuestionId(newQuiz.questions[0]?.id || null);
-    }
-  }, []);
+  const saveQuizzes = useCallback((newQuizzes: Quiz[]) => { setQuizzes(newQuizzes); localStorage.setItem('quizzes', JSON.stringify(newQuizzes)); }, []);
 
-  const addQuestion = useCallback((type: QuestionType = 'multiple_choice') => {
-    const newQuestion: Question = {
-      id: uuidv4(),
-      type,
-      question: 'Новый вопрос',
-      required: false,
-      points: 10,
-      options: type === 'multiple_choice' || type === 'multi_select' ? [
-        { id: uuidv4(), text: 'Вариант 1' },
-        { id: uuidv4(), text: 'Вариант 2' },
-      ] : undefined,
-      min: type === 'scale' || type === 'slider' ? 1 : undefined,
-      max: type === 'scale' || type === 'slider' ? 10 : undefined,
-    };
-    setQuiz(prev => ({
-      ...prev,
-      questions: [...prev.questions, newQuestion],
-    }));
-    setSelectedQuestionId(newQuestion.id);
-  }, []);
-
-  const updateQuestion = useCallback((id: string, updates: Partial<Question>) => {
-    setQuiz(prev => ({
-      ...prev,
-      questions: prev.questions.map(q => q.id === id ? { ...q, ...updates } : q),
-    }));
-  }, []);
-
-  const removeQuestion = useCallback((id: string) => {
-    setQuiz(prev => ({
-      ...prev,
-      questions: prev.questions.filter(q => q.id !== id),
-    }));
-    if (selectedQuestionId === id) {
-      setSelectedQuestionId(null);
-    }
-  }, [selectedQuestionId]);
-
-  const addOption = useCallback((questionId: string) => {
-    setQuiz(prev => ({
-      ...prev,
-      questions: prev.questions.map(q => {
-        if (q.id !== questionId) return q;
-        return { ...q, options: [...(q.options || []), { id: uuidv4(), text: `Вариант ${(q.options?.length || 0) + 1}` }] };
-      }),
-    }));
-  }, []);
-
-  const updateOption = useCallback((questionId: string, optionId: string, text: string) => {
-    setQuiz(prev => ({
-      ...prev,
-      questions: prev.questions.map(q => {
-        if (q.id !== questionId) return q;
-        return { ...q, options: q.options?.map(o => o.id === optionId ? { ...o, text } : o) };
-      }),
-    }));
-  }, []);
-
-  const removeOption = useCallback((questionId: string, optionId: string) => {
-    setQuiz(prev => ({
-      ...prev,
-      questions: prev.questions.map(q => {
-        if (q.id !== questionId) return q;
-        return { ...q, options: q.options?.filter(o => o.id !== optionId) };
-      }),
-    }));
-  }, []);
-
-  const handleDragStart = (questionId: string) => {
-    setDraggedQuestion(questionId);
-  };
-
-  const handleDragOver = (e: React.DragEvent, targetId: string) => {
-    e.preventDefault();
-    if (!draggedQuestion || draggedQuestion === targetId) return;
-    
-    setQuiz(prev => {
-      const questions = [...prev.questions];
-      const draggedIndex = questions.findIndex(q => q.id === draggedQuestion);
-      const targetIndex = questions.findIndex(q => q.id === targetId);
-      
-      const [dragged] = questions.splice(draggedIndex, 1);
-      questions.splice(targetIndex, 0, dragged);
-      
-      return { ...prev, questions };
-    });
-  };
-
-  const handleDragEnd = () => {
-    setDraggedQuestion(null);
-  };
-
-  const updateDesign = useCallback((updates: Partial<QuizDesign>) => {
-    setQuiz(prev => ({
-      ...prev,
-      design: { ...prev.design, ...updates },
-    }));
-  }, []);
-
-  const updateSettings = useCallback((updates: Partial<Quiz['settings']>) => {
-    setQuiz(prev => ({
-      ...prev,
-      settings: { ...prev.settings, ...updates },
-    }));
-  }, []);
-
-  const addResult = useCallback(() => {
-    const newResult: Result = {
-      id: uuidv4(),
-      title: 'Новый результат',
-      description: 'Описание',
-      minScore: 0,
-      maxScore: 100,
-    };
-    setQuiz(prev => ({
-      ...prev,
-      results: [...prev.results, newResult],
-    }));
-  }, []);
-
-  const updateResult = useCallback((id: string, updates: Partial<Result>) => {
-    setQuiz(prev => ({
-      ...prev,
-      results: prev.results.map(r => r.id === id ? { ...r, ...updates } : r),
-    }));
-  }, []);
-
-  const removeResult = useCallback((id: string) => {
-    setQuiz(prev => ({
-      ...prev,
-      results: prev.results.filter(r => r.id !== id),
-    }));
-  }, []);
-
-  const exportQuiz = (format: 'json' | 'html') => {
-    if (format === 'json') {
-      const dataStr = JSON.stringify(quiz, null, 2);
-      const blob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${quiz.title || 'quiz'}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
+  const createNewQuiz = useCallback((templateKey?: string) => {
+    if (templateKey && templates[templateKey]) {
+      const template = templates[templateKey];
+      const newQuiz: Quiz = { ...template, id: uuidv4(), title: template.title, questions: template.questions.map(q => ({ ...q, id: uuidv4() })), results: template.results.map(r => ({ ...r, id: uuidv4() })), design: { ...template.design } };
+      setCurrentQuiz(newQuiz); saveQuizzes([...quizzes, newQuiz]);
     } else {
-      const html = generateHTMLQuiz(quiz);
-      const blob = new Blob([html], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${quiz.title || 'quiz'}.html`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const newQuiz: Quiz = { id: uuidv4(), title: 'Новый квиз', description: 'Описание', questions: [], flow: [], results: [], design: defaultLightDesign, settings: { shuffleQuestions: false, showResults: true, collectEmail: false } };
+      setCurrentQuiz(newQuiz); saveQuizzes([...quizzes, newQuiz]);
     }
-  };
+    setView('builder'); setActiveTab('questions'); setSelectedQuestionId(null);
+  }, [quizzes, saveQuizzes]);
 
-  const generateHTMLQuiz = (q: Quiz): string => {
-    const { design } = q;
-    return `<!DOCTYPE html>
-<html lang="ru">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${q.title}</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { 
-      font-family: '${design.fontFamily}', sans-serif; 
-      background: ${design.backgroundImage ? `url(${design.backgroundImage})` : design.backgroundColor};
-      color: ${design.textColor};
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-    .quiz-container {
-      background: rgba(22, 22, 31, 0.95);
-      border-radius: 20px;
-      padding: 40px;
-      max-width: 600px;
-      width: 100%;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-    }
-    h1 { text-align: center; margin-bottom: 10px; color: ${design.primaryColor}; }
-    .description { text-align: center; color: #94a3b8; margin-bottom: 30px; }
-    .question { margin-bottom: 30px; }
-    .question-text { font-size: 1.2em; margin-bottom: 15px; font-weight: 500; }
-    .question-desc { color: #94a3b8; font-size: 0.9em; margin-bottom: 15px; }
-    .options { display: flex; flex-direction: column; gap: 10px; }
-    .option {
-      padding: 15px 20px;
-      background: #1e1e2a;
-      border: 2px solid #2e2e3a;
-      border-radius: 12px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .option:hover { border-color: ${design.primaryColor}; }
-    .option.selected { background: ${design.primaryColor}; border-color: ${design.primaryColor}; }
-    input, textarea { 
-      width: 100%; 
-      padding: 15px; 
-      background: #1e1e2a; 
-      border: 2px solid #2e2e3a; 
-      border-radius: 12px;
-      color: white;
-      font-size: 1em;
-    }
-    input:focus, textarea:focus { outline: none; border-color: ${design.primaryColor}; }
-    .btn {
-      background: ${design.buttonColor};
-      color: white;
-      border: none;
-      padding: 15px 40px;
-      border-radius: ${design.buttonStyle === 'rounded' ? '12px' : design.buttonStyle === 'pill' ? '30px' : '8px'};
-      font-size: 1em;
-      cursor: pointer;
-      width: 100%;
-      margin-top: 20px;
-    }
-    .btn:hover { filter: brightness(1.1); }
-    .progress { height: 4px; background: #2e2e3a; border-radius: 2px; margin-bottom: 30px; }
-    .progress-bar { height: 100%; background: ${design.primaryColor}; border-radius: 2px; transition: width 0.3s; }
-    .result { text-align: center; padding: 40px; }
-    .result-title { font-size: 2em; color: ${design.accentColor}; margin-bottom: 20px; }
-  </style>
-</head>
-<body>
-  <div class="quiz-container">
-    <h1>${q.title}</h1>
-    <p class="description">${q.description}</p>
-    <div class="progress"><div class="progress-bar" style="width: 0%"></div></div>
-    <div id="quiz-content">
-      ${q.questions.map((question, i) => `
-        <div class="question" data-index="${i}" style="display: ${i === 0 ? 'block' : 'none'}">
-          <div class="question-text">${i + 1}. ${question.question}</div>
-          ${question.description ? `<div class="question-desc">${question.description}</div>` : ''}
-          ${renderQuestionHTML(question, design)}
-          <button class="btn" onclick="nextQuestion(${i})">Далее</button>
-        </div>
-      `).join('')}
-    </div>
-  </div>
-  <script>
-    let currentIndex = 0;
-    const total = ${q.questions.length};
-    function nextQuestion(i) {
-      document.querySelectorAll('.question')[i].style.display = 'none';
-      if (i + 1 < total) {
-        document.querySelectorAll('.question')[i + 1].style.display = 'block';
-        document.querySelector('.progress-bar').style.width = ((i + 1) / total * 100) + '%';
-      } else {
-        document.getElementById('quiz-content').innerHTML = '<div class="result"><div class="result-title">Спасибо!</div><p>Ваши ответы сохранены</p></div>';
-      }
-    }
-  </script>
-</body>
-</html>`;
-  };
+  const loadQuiz = useCallback((quiz: Quiz) => { setCurrentQuiz(quiz); setView('builder'); setActiveTab('questions'); setSelectedQuestionId(quiz.questions[0]?.id || null); }, []);
+  const deleteQuiz = useCallback((id: string) => { const n = quizzes.filter(q => q.id !== id); saveQuizzes(n); if (currentQuiz?.id === id) { setCurrentQuiz(null); setView('projects'); } }, [quizzes, currentQuiz, saveQuizzes]);
+  const duplicateQuiz = useCallback((quiz: Quiz) => { const n: Quiz = { ...quiz, id: uuidv4(), title: `${quiz.title} (копия)`, questions: quiz.questions.map(q => ({ ...q, id: uuidv4() })), results: quiz.results.map(r => ({ ...r, id: uuidv4() })), design: { ...quiz.design } }; saveQuizzes([...quizzes, n]); }, [quizzes, saveQuizzes]);
+  const updateCurrentQuiz = useCallback((u: Partial<Quiz>) => { if (!currentQuiz) return; const updated = { ...currentQuiz, ...u }; setCurrentQuiz(updated); setQuizzes(prev => prev.map(q => q.id === updated.id ? updated : q)); }, [currentQuiz]);
 
-  const renderQuestionHTML = (question: Question, design: QuizDesign): string => {
-    switch (question.type) {
-      case 'multiple_choice':
-      case 'yes_no':
-        return `<div class="options">
-          ${question.options?.map((opt, i) => `
-            <div class="option" onclick="this.classList.toggle('selected')">${opt.text}</div>
-          `).join('') || ''}
-        </div>`;
-      case 'text':
-      case 'email':
-      case 'phone':
-      case 'number':
-        return `<input type="${question.type === 'number' ? 'number' : question.type}" placeholder="${question.placeholder || ''}">`;
-      case 'rating':
-        return `<div class="options">${[1,2,3,4,5].map(i => `<div class="option" onclick="this.classList.toggle('selected')">⭐</div>`).join('')}</div>`;
-      case 'scale':
-        return `<input type="range" min="${question.min || 1}" max="${question.max || 10}" style="width:100%">`;
-      default:
-        return `<input type="text" placeholder="Ваш ответ">`;
-    }
-  };
+  const addQuestion = useCallback((type: QuestionType = 'multiple_choice') => { if (!currentQuiz) return; const nq: Question = { id: uuidv4(), type, question: 'Новый вопрос', required: false, points: 10, options: type === 'multiple_choice' ? [{ id: uuidv4(), text: 'Вариант 1' }, { id: uuidv4(), text: 'Вариант 2' }] : undefined }; const updated = { ...currentQuiz, questions: [...currentQuiz.questions, nq] }; setCurrentQuiz(updated); setQuizzes(prev => prev.map(q => q.id === updated.id ? updated : q)); setSelectedQuestionId(nq.id); }, [currentQuiz]);
+  const updateQuestion = useCallback((id: string, u: Partial<Question>) => { if (!currentQuiz) return; const updated = { ...currentQuiz, questions: currentQuiz.questions.map(q => q.id === id ? { ...q, ...u } : q) }; setCurrentQuiz(updated); setQuizzes(prev => prev.map(q => q.id === updated.id ? updated : q)); }, [currentQuiz]);
+  const removeQuestion = useCallback((id: string) => { if (!currentQuiz) return; const updated = { ...currentQuiz, questions: currentQuiz.questions.filter(q => q.id !== id) }; setCurrentQuiz(updated); setQuizzes(prev => prev.map(q => q.id === updated.id ? updated : q)); if (selectedQuestionId === id) setSelectedQuestionId(null); }, [currentQuiz, selectedQuestionId]);
+  const addOption = useCallback((qid: string) => { if (!currentQuiz) return; const updated = { ...currentQuiz, questions: currentQuiz.questions.map(q => q.id !== qid ? q : { ...q, options: [...(q.options || []), { id: uuidv4(), text: `Вариант ${(q.options?.length || 0) + 1}` }] }) }; setCurrentQuiz(updated); setQuizzes(prev => prev.map(q => q.id === updated.id ? updated : q)); }, [currentQuiz]);
+  const updateOption = useCallback((qid: string, oid: string, text: string) => { if (!currentQuiz) return; const updated = { ...currentQuiz, questions: currentQuiz.questions.map(q => q.id !== qid ? q : { ...q, options: q.options?.map(o => o.id === oid ? { ...o, text } : o) }) }; setCurrentQuiz(updated); setQuizzes(prev => prev.map(q => q.id === updated.id ? updated : q)); }, [currentQuiz]);
+  const removeOption = useCallback((qid: string, oid: string) => { if (!currentQuiz) return; const updated = { ...currentQuiz, questions: currentQuiz.questions.map(q => q.id !== qid ? q : { ...q, options: q.options?.filter(o => o.id !== oid) }) }; setCurrentQuiz(updated); setQuizzes(prev => prev.map(q => q.id === updated.id ? updated : q)); }, [currentQuiz]);
+  const handleDragOver = (e: React.DragEvent, tid: string) => { e.preventDefault(); if (!draggedQuestion || !currentQuiz || draggedQuestion === tid) return; const qs = [...currentQuiz.questions]; const di = qs.findIndex(q => q.id === draggedQuestion); const ti = qs.findIndex(q => q.id === tid); const [dragged] = qs.splice(di, 1); qs.splice(ti, 0, dragged); setCurrentQuiz({ ...currentQuiz, questions: qs }); };
+  const updateDesign = useCallback((u: Partial<QuizDesign>) => { if (!currentQuiz) return; const updated = { ...currentQuiz, design: { ...currentQuiz.design, ...u } }; setCurrentQuiz(updated); setQuizzes(prev => prev.map(q => q.id === updated.id ? updated : q)); }, [currentQuiz]);
+  const updateSettings = useCallback((u: Partial<Quiz['settings']>) => { if (!currentQuiz) return; const updated = { ...currentQuiz, settings: { ...currentQuiz.settings, ...u } }; setCurrentQuiz(updated); setQuizzes(prev => prev.map(q => q.id === updated.id ? updated : q)); }, [currentQuiz]);
+  const addResult = useCallback(() => { if (!currentQuiz) return; const nr: Result = { id: uuidv4(), title: 'Новый результат', description: 'Описание', minScore: 0, maxScore: 100 }; const updated = { ...currentQuiz, results: [...currentQuiz.results, nr] }; setCurrentQuiz(updated); setQuizzes(prev => prev.map(q => q.id === updated.id ? updated : q)); }, [currentQuiz]);
+  const updateResult = useCallback((id: string, u: Partial<Result>) => { if (!currentQuiz) return; const updated = { ...currentQuiz, results: currentQuiz.results.map(r => r.id === id ? { ...r, ...u } : r) }; setCurrentQuiz(updated); setQuizzes(prev => prev.map(q => q.id === updated.id ? updated : q)); }, [currentQuiz]);
+  const removeResult = useCallback((id: string) => { if (!currentQuiz) return; const updated = { ...currentQuiz, results: currentQuiz.results.filter(r => r.id !== id) }; setCurrentQuiz(updated); setQuizzes(prev => prev.map(q => q.id === updated.id ? updated : q)); }, [currentQuiz]);
+  const exportQuiz = (format: 'json') => { if (!currentQuiz) return; if (format === 'json') { const blob = new Blob([JSON.stringify(currentQuiz, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${currentQuiz.title || 'quiz'}.json`; a.click(); } };
 
-  const tabs: { id: Tab; label: string; icon: string }[] = [
-    { id: 'questions', label: 'Вопросы', icon: '?' },
-    { id: 'flow', label: 'Сценарий', icon: '↳' },
-    { id: 'design', label: 'Дизайн', icon: '🎨' },
-    { id: 'settings', label: 'Настройки', icon: '⚙' },
-  ];
+  const startPreview = () => { setPreviewAnswers({}); setPreviewCurrentQuestion(0); setPreviewScore(0); setShowResult(false); setShowPreview(true); setTextAnswer(''); };
+  const handlePreviewAnswer = (answer: any) => { if (!currentQuiz) return; const q = currentQuiz.questions[previewCurrentQuestion]; const na = { ...previewAnswers, [q.id]: answer }; setPreviewAnswers(na); let as = 0; if (typeof answer === 'string' && q.options) { const opt = q.options.find(o => o.text === answer); if (opt?.points) as = opt.points; } else if (q.type === 'scale' || q.type === 'yes_no' || q.type === 'rating') { as = (typeof answer === 'number' ? answer : (answer === 'true' ? 10 : 0)) || 0; } setPreviewScore(prev => prev + as); if (previewCurrentQuestion < currentQuiz.questions.length - 1) { setPreviewCurrentQuestion(prev => prev + 1); setTextAnswer(''); } else { setShowResult(true); } };
+  const getPreviewResult = () => { if (!currentQuiz) return null; return currentQuiz.results.find(r => previewScore >= r.minScore && previewScore <= r.maxScore) || null; };
+  const selectedQuestion = currentQuiz?.questions.find(q => q.id === selectedQuestionId);
+  const tabs: { id: Tab; label: string }[] = [ { id: 'questions', label: 'Вопросы' }, { id: 'flow', label: 'Результаты' }, { id: 'design', label: 'Дизайн' }, { id: 'settings', label: 'Настройки' } ];
 
-  return (
-    <div className="min-h-screen bg-[var(--background)] flex flex-col">
-      <header className="border-b border-[var(--border)] px-6 py-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] bg-clip-text text-transparent">
-          Quiz Forge Pro
-        </h1>
-        <div className="flex gap-2">
-          <button onClick={() => exportQuiz('json')} className="px-4 py-2 border border-[var(--border)] rounded-lg hover:bg-[var(--surface)] transition-colors">
-            JSON
-          </button>
-          <button onClick={() => exportQuiz('html')} className="px-4 py-2 bg-[var(--primary)] hover:bg-[var(--primary-hover)] rounded-lg font-medium transition-colors">
-            Экспорт HTML
-          </button>
-        </div>
-      </header>
+  if (view === 'projects') { return ( <div className="min-h-screen bg-slate-50"> <header className="bg-white border-b border-slate-200 px-8 py-6"> <div className="max-w-6xl mx-auto flex items-center justify-between"> <div> <h1 className="text-2xl font-bold text-slate-800">Quiz Forge</h1> <p className="text-slate-500 mt-1">Создавай квизы для своего приложения</p> </div> <button onClick={() => createNewQuiz()} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition">+ Новый квиз</button> </div> </header> <main className="max-w-6xl mx-auto p-8"> <section className="mb-10"> <h2 className="text-lg font-semibold text-slate-700 mb-4">Шаблоны квизов</h2> <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"> {Object.entries(templates).map(([key, tpl]) => ( <button key={key} onClick={() => createNewQuiz(key)} className="bg-white p-6 rounded-2xl border border-slate-200 text-left hover:border-indigo-400 hover:shadow-lg transition-all"> <div className="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center text-2xl mb-4">🎯</div> <h3 className="font-semibold text-slate-800">{tpl.title}</h3> <p className="text-sm text-slate-500 mt-1">{tpl.questions.length} вопросов</p> </button> ))} </div> </section> {quizzes.length > 0 && ( <section> <h2 className="text-lg font-semibold text-slate-700 mb-4">Мои квизы</h2> <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4"> {quizzes.map(quiz => ( <div key={quiz.id} className="bg-white p-6 rounded-2xl border border-slate-200"> <h3 className="font-semibold text-slate-800 text-lg">{quiz.title}</h3> <p className="text-sm text-slate-500 mt-1">{quiz.description}</p> <div className="flex items-center gap-4 mt-4 text-sm text-slate-600"> <span>{quiz.questions.length} вопросов</span> <span>{quiz.results.length} результатов</span> </div> <div className="flex gap-2 mt-4"> <button onClick={() => loadQuiz(quiz)} className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition">Редактировать</button> <button onClick={() => { setCurrentQuiz(quiz); startPreview(); }} className="px-3 py-2 border border-slate-200 rounded-xl hover:bg-slate-50">▶</button> <button onClick={() => duplicateQuiz(quiz)} className="px-3 py-2 border border-slate-200 rounded-xl hover:bg-slate-50">⎘</button> <button onClick={() => deleteQuiz(quiz.id)} className="px-3 py-2 border border-slate-200 rounded-xl hover:bg-slate-50 text-red-500">✕</button> </div> </div> ))} </div> </section> )} </main> </div> ); }
 
-      <div className="flex flex-1 overflow-hidden">
-        <aside className="w-64 border-r border-[var(--border)] p-4 flex flex-col gap-2">
-          <div className="mb-4">
-            <label className="text-xs text-[var(--muted)] uppercase tracking-wider">Шаблоны</label>
-            <select 
-              onChange={(e) => e.target.value && applyTemplate(e.target.value)}
-              className="w-full mt-2 px-3 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm"
-            >
-              <option value="">Выбрать шаблон...</option>
-              {Object.entries(templates).map(([key, tpl]) => (
-                <option key={key} value={key}>{tpl.title}</option>
-              ))}
-            </select>
-          </div>
-
-          <nav className="space-y-1">
-            {tabs.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${
-                  activeTab === tab.id 
-                    ? 'bg-[var(--primary)]/20 text-[var(--primary)]' 
-                    : 'hover:bg-[var(--surface)] text-[var(--muted)]'
-                }`}
-              >
-                <span>{tab.icon}</span>
-                {tab.label}
-              </button>
-            ))}
-          </nav>
-        </aside>
-
-        <main className="flex-1 overflow-auto p-6">
-          {activeTab === 'questions' && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-3">
-                <input
-                  type="text"
-                  value={quiz.title}
-                  onChange={e => setQuiz(prev => ({ ...prev, title: e.target.value }))}
-                  placeholder="Название квиза"
-                  className="px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-lg font-semibold"
-                />
-                <input
-                  type="text"
-                  value={quiz.description}
-                  onChange={e => setQuiz(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Описание"
-                  className="px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg"
-                />
-              </div>
-
-              <div className="space-y-2">
-                {quiz.questions.map((q, index) => (
-                  <div
-                    key={q.id}
-                    draggable
-                    onDragStart={() => handleDragStart(q.id)}
-                    onDragOver={(e) => handleDragOver(e, q.id)}
-                    onDragEnd={handleDragEnd}
-                    onClick={() => setSelectedQuestionId(q.id)}
-                    className={`p-4 bg-[var(--surface)] border rounded-lg cursor-pointer transition-all ${
-                      selectedQuestionId === q.id 
-                        ? 'border-[var(--primary)] ring-2 ring-[var(--primary)]/20' 
-                        : 'border-[var(--border)] hover:border-[var(--primary)]/50'
-                    } ${draggedQuestion === q.id ? 'opacity-50' : ''}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className="w-8 h-8 flex items-center justify-center bg-[var(--primary)]/20 rounded-lg text-[var(--primary)] font-medium">
-                          {index + 1}
-                        </span>
-                        <div>
-                          <div className="font-medium">{q.question}</div>
-                          <div className="text-xs text-[var(--muted)]">{questionTypes.find(t => t.value === q.type)?.label} • {q.points} баллов</div>
-                        </div>
-                      </div>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); removeQuestion(q.id); }}
-                        className="p-2 text-[var(--muted)] hover:text-[var(--error)] transition-colors"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex gap-2 flex-wrap">
-                <span className="text-sm text-[var(--muted)] self-center">Добавить:</span>
-                {questionTypes.slice(0, 6).map(type => (
-                  <button
-                    key={type.value}
-                    onClick={() => addQuestion(type.value)}
-                    className="px-3 py-1.5 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm hover:border-[var(--primary)] transition-colors"
-                  >
-                    {type.icon} {type.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'flow' && (
-            <div className="space-y-6">
-              <div className="p-6 bg-[var(--surface)] border border-[var(--border)] rounded-xl">
-                <h3 className="font-semibold mb-4">Результаты квиза</h3>
-                {quiz.results.length === 0 ? (
-                  <p className="text-[var(--muted)] mb-4">Нет результатов. Добавьте для отображения итогов.</p>
-                ) : (
-                  <div className="space-y-3 mb-4">
-                    {quiz.results.map(result => (
-                      <div key={result.id} className="p-3 bg-[var(--background)] rounded-lg">
-                        <input
-                          type="text"
-                          value={result.title}
-                          onChange={e => updateResult(result.id, { title: e.target.value })}
-                          className="w-full bg-transparent font-medium mb-1"
-                        />
-                        <input
-                          type="text"
-                          value={result.description}
-                          onChange={e => updateResult(result.id, { description: e.target.value })}
-                          className="w-full bg-transparent text-sm text-[var(--muted)]"
-                        />
-                        <div className="flex gap-2 mt-2">
-                          <input
-                            type="number"
-                            value={result.minScore}
-                            onChange={e => updateResult(result.id, { minScore: parseInt(e.target.value) })}
-                            className="w-20 px-2 py-1 bg-[var(--surface)] border border-[var(--border)] rounded text-sm"
-                            placeholder="Мин"
-                          />
-                          <input
-                            type="number"
-                            value={result.maxScore}
-                            onChange={e => updateResult(result.id, { maxScore: parseInt(e.target.value) })}
-                            className="w-20 px-2 py-1 bg-[var(--surface)] border border-[var(--border)] rounded text-sm"
-                            placeholder="Макс"
-                          />
-                          <button onClick={() => removeResult(result.id)} className="text-[var(--error)] text-sm">Удалить</button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <button onClick={addResult} className="px-4 py-2 bg-[var(--accent)]/20 text-[var(--accent)] rounded-lg hover:bg-[var(--accent)]/30 transition-colors">
-                  + Добавить результат
-                </button>
-              </div>
-
-              <div className="p-6 bg-[var(--surface)] border border-[var(--border)] rounded-xl">
-                <h3 className="font-semibold mb-4">Визуальный поток</h3>
-                <div className="flex flex-wrap gap-4">
-                  {quiz.questions.map((q, i) => (
-                    <div key={q.id} className="flex items-center gap-2">
-                      <div className={`px-4 py-3 bg-[var(--background)] border rounded-lg ${selectedQuestionId === q.id ? 'border-[var(--primary)]' : 'border-[var(--border)]'}`}>
-                        <div className="text-sm font-medium">{q.question.slice(0, 20)}...</div>
-                        <div className="text-xs text-[var(--muted)]">Вопрос {i + 1}</div>
-                      </div>
-                      {i < quiz.questions.length - 1 && <span className="text-[var(--muted)]">→</span>}
-                    </div>
-                  ))}
-                  {quiz.questions.length > 0 && <span className="text-[var(--muted)]">→ 📊 Результат</span>}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'design' && (
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <h3 className="font-semibold">Цвета</h3>
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-sm text-[var(--muted)]">Основной цвет</label>
-                    <input
-                      type="color"
-                      value={quiz.design.primaryColor}
-                      onChange={e => updateDesign({ primaryColor: e.target.value })}
-                      className="w-full h-10 rounded-lg cursor-pointer"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm text-[var(--muted)]">Акцентный цвет</label>
-                    <input
-                      type="color"
-                      value={quiz.design.accentColor}
-                      onChange={e => updateDesign({ accentColor: e.target.value })}
-                      className="w-full h-10 rounded-lg cursor-pointer"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm text-[var(--muted)]">Цвет фона</label>
-                    <input
-                      type="color"
-                      value={quiz.design.backgroundColor}
-                      onChange={e => updateDesign({ backgroundColor: e.target.value })}
-                      className="w-full h-10 rounded-lg cursor-pointer"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm text-[var(--muted)]">Цвет кнопок</label>
-                    <input
-                      type="color"
-                      value={quiz.design.buttonColor}
-                      onChange={e => updateDesign({ buttonColor: e.target.value })}
-                      className="w-full h-10 rounded-lg cursor-pointer"
-                    />
-                  </div>
-                </div>
-
-                <h3 className="font-semibold mt-6">Стиль</h3>
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-sm text-[var(--muted)]">Шрифт</label>
-                    <select
-                      value={quiz.design.fontFamily}
-                      onChange={e => updateDesign({ fontFamily: e.target.value })}
-                      className="w-full px-3 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg"
-                    >
-                      <option value="DM Sans">DM Sans</option>
-                      <option value="Outfit">Outfit</option>
-                      <option value="Inter">Inter</option>
-                      <option value="Roboto">Roboto</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-sm text-[var(--muted)]">Стиль кнопок</label>
-                    <div className="flex gap-2 mt-2">
-                      {(['rounded', 'square', 'pill'] as const).map(style => (
-                        <button
-                          key={style}
-                          onClick={() => updateDesign({ buttonStyle: style })}
-                          className={`flex-1 py-2 border rounded-lg capitalize ${
-                            quiz.design.buttonStyle === style 
-                              ? 'border-[var(--primary)] bg-[var(--primary)]/20' 
-                              : 'border-[var(--border)]'
-                          }`}
-                        >
-                          {style}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <h3 className="font-semibold">Элементы</h3>
-                <div className="space-y-3">
-                  <label className="flex items-center gap-3 p-3 bg-[var(--surface)] rounded-lg cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={quiz.design.showProgress}
-                      onChange={e => updateDesign({ showProgress: e.target.checked })}
-                      className="w-5 h-5 accent-[var(--primary)]"
-                    />
-                    Показывать прогресс
-                  </label>
-                  <label className="flex items-center gap-3 p-3 bg-[var(--surface)] rounded-lg cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={quiz.design.showTimer}
-                      onChange={e => updateDesign({ showTimer: e.target.checked })}
-                      className="w-5 h-5 accent-[var(--primary)]"
-                    />
-                    Показывать таймер
-                  </label>
-                </div>
-
-                <h3 className="font-semibold mt-6">Превью дизайна</h3>
-                <div 
-                  className="p-6 rounded-xl"
-                  style={{ background: quiz.design.backgroundColor, color: quiz.design.textColor }}
-                >
-                  <h4 style={{ color: quiz.design.primaryColor }} className="font-bold mb-2">{quiz.title || 'Название'}</h4>
-                  <p className="text-sm opacity-70 mb-4">{quiz.description || 'Описание'}</p>
-                  <div className="space-y-2 mb-4">
-                    <div className="p-3 rounded-lg bg-white/10 text-sm">Вариант 1</div>
-                    <div className="p-3 rounded-lg bg-white/10 text-sm">Вариант 2</div>
-                  </div>
-                  <button
-                    style={{ 
-                      background: quiz.design.buttonColor, 
-                      borderRadius: quiz.design.buttonStyle === 'rounded' ? '12px' : quiz.design.buttonStyle === 'pill' ? '30px' : '4px' 
-                    }}
-                    className="w-full py-3 font-medium"
-                  >
-                    Далее
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'settings' && (
-            <div className="space-y-6 max-w-xl">
-              <div className="p-6 bg-[var(--surface)] border border-[var(--border)] rounded-xl space-y-4">
-                <h3 className="font-semibold">Настройки квиза</h3>
-                
-                <label className="flex items-center gap-3 p-3 bg-[var(--background)] rounded-lg cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={quiz.settings.shuffleQuestions}
-                    onChange={e => updateSettings({ shuffleQuestions: e.target.checked })}
-                    className="w-5 h-5 accent-[var(--primary)]"
-                  />
-                  Перемешать вопросы
-                </label>
-                
-                <label className="flex items-center gap-3 p-3 bg-[var(--background)] rounded-lg cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={quiz.settings.showResults}
-                    onChange={e => updateSettings({ showResults: e.target.checked })}
-                    className="w-5 h-5 accent-[var(--primary)]"
-                  />
-                  Показать результаты
-                </label>
-                
-                <label className="flex items-center gap-3 p-3 bg-[var(--background)] rounded-lg cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={quiz.settings.collectEmail}
-                    onChange={e => updateSettings({ collectEmail: e.target.checked })}
-                    className="w-5 h-5 accent-[var(--primary)]"
-                  />
-                  Сбор email
-                </label>
-
-                <div>
-                  <label className="text-sm text-[var(--muted)]">URL редирект после завершения</label>
-                  <input
-                    type="text"
-                    value={quiz.settings.redirectUrl || ''}
-                    onChange={e => updateSettings({ redirectUrl: e.target.value })}
-                    placeholder="https://..."
-                    className="w-full mt-2 px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-lg"
-                  />
-                </div>
-              </div>
-
-              <div className="p-6 bg-[var(--surface)] border border-[var(--border)] rounded-xl">
-                <h3 className="font-semibold mb-4">Статистика</h3>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="text-center p-4 bg-[var(--background)] rounded-lg">
-                    <div className="text-2xl font-bold text-[var(--primary)]">{quiz.questions.length}</div>
-                    <div className="text-xs text-[var(--muted)]">Вопросов</div>
-                  </div>
-                  <div className="text-center p-4 bg-[var(--background)] rounded-lg">
-                    <div className="text-2xl font-bold text-[var(--accent)]">{quiz.questions.reduce((sum, q) => sum + q.points, 0)}</div>
-                    <div className="text-xs text-[var(--muted)]">Макс. баллов</div>
-                  </div>
-                  <div className="text-center p-4 bg-[var(--background)] rounded-lg">
-                    <div className="text-2xl font-bold text-[var(--success)]">{quiz.results.length}</div>
-                    <div className="text-xs text-[var(--muted)]">Результатов</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </main>
-
-        {selectedQuestion && (
-          <aside className="w-80 border-l border-[var(--border)] p-4 overflow-auto">
-            <h3 className="font-semibold mb-4">Редактор вопроса</h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs text-[var(--muted)]">Тип вопроса</label>
-                <select
-                  value={selectedQuestion.type}
-                  onChange={e => updateQuestion(selectedQuestion.id, { type: e.target.value as QuestionType })}
-                  className="w-full mt-1 px-3 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg"
-                >
-                  {questionTypes.map(t => (
-                    <option key={t.value} value={t.value}>{t.icon} {t.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs text-[var(--muted)]">Вопрос</label>
-                <textarea
-                  value={selectedQuestion.question}
-                  onChange={e => updateQuestion(selectedQuestion.id, { question: e.target.value })}
-                  className="w-full mt-1 px-3 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg resize-none"
-                  rows={2}
-                />
-              </div>
-
-              <div>
-                <label className="text-xs text-[var(--muted)]">Описание</label>
-                <input
-                  type="text"
-                  value={selectedQuestion.description || ''}
-                  onChange={e => updateQuestion(selectedQuestion.id, { description: e.target.value })}
-                  className="w-full mt-1 px-3 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg"
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <label className="text-xs text-[var(--muted)]">Баллы</label>
-                  <input
-                    type="number"
-                    value={selectedQuestion.points}
-                    onChange={e => updateQuestion(selectedQuestion.id, { points: parseInt(e.target.value) || 0 })}
-                    className="w-full mt-1 px-3 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg"
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="text-xs text-[var(--muted)]">Таймер (сек)</label>
-                  <input
-                    type="number"
-                    value={selectedQuestion.timer || ''}
-                    onChange={e => updateQuestion(selectedQuestion.id, { timer: parseInt(e.target.value) || undefined })}
-                    className="w-full mt-1 px-3 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg"
-                  />
-                </div>
-              </div>
-
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={selectedQuestion.required}
-                  onChange={e => updateQuestion(selectedQuestion.id, { required: e.target.checked })}
-                  className="accent-[var(--primary)]"
-                />
-                <span className="text-sm">Обязательный</span>
-              </label>
-
-              {(selectedQuestion.type === 'multiple_choice' || selectedQuestion.type === 'multi_select') && (
-                <div>
-                  <label className="text-xs text-[var(--muted)]">Варианты ответов</label>
-                  <div className="space-y-2 mt-2">
-                    {selectedQuestion.options?.map((opt, i) => (
-                      <div key={opt.id} className="flex gap-2">
-                        <input
-                          type="text"
-                          value={opt.text}
-                          onChange={e => updateOption(selectedQuestion.id, opt.id, e.target.value)}
-                          placeholder={`Вариант ${i + 1}`}
-                          className="flex-1 px-3 py-2 bg-[var(--background)] border border-[var(--border)] rounded-lg text-sm"
-                        />
-                        <button
-                          onClick={() => removeOption(selectedQuestion.id, opt.id)}
-                          className="text-[var(--muted)] hover:text-[var(--error)]"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                    <button
-                      onClick={() => addOption(selectedQuestion.id)}
-                      className="text-sm text-[var(--primary)] hover:text-[var(--primary-hover)]"
-                    >
-                      + Добавить вариант
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {(selectedQuestion.type === 'scale' || selectedQuestion.type === 'slider') && (
-                <div className="flex gap-2">
-                  <div>
-                    <label className="text-xs text-[var(--muted)]">Мин</label>
-                    <input
-                      type="number"
-                      value={selectedQuestion.min || 1}
-                      onChange={e => updateQuestion(selectedQuestion.id, { min: parseInt(e.target.value) })}
-                      className="w-full mt-1 px-3 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-[var(--muted)]">Макс</label>
-                    <input
-                      type="number"
-                      value={selectedQuestion.max || 10}
-                      onChange={e => updateQuestion(selectedQuestion.id, { max: parseInt(e.target.value) })}
-                      className="w-full mt-1 px-3 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          </aside>
-        )}
-      </div>
-    </div>
-  );
+  return ( <div className="min-h-screen bg-slate-50 flex flex-col"> <header className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between"> <div className="flex items-center gap-4"> <button onClick={() => setView('projects')} className="text-slate-500 hover:text-slate-700">← Назад</button> <input type="text" value={currentQuiz?.title || ''} onChange={e => updateCurrentQuiz({ title: e.target.value })} className="text-lg font-semibold bg-transparent border-none outline-none text-slate-800" placeholder="Название" /> </div> <div className="flex gap-2"> <button onClick={startPreview} className="px-4 py-2 border border-slate-200 rounded-xl hover:bg-slate-50 text-sm">▶ Превью</button> <button onClick={() => exportQuiz('json')} className="px-4 py-2 border border-slate-200 rounded-xl hover:bg-slate-50 text-sm">JSON</button> </div> </header> <div className="flex flex-1 overflow-hidden"> <aside className="w-56 bg-white border-r border-slate-200 p-4 flex flex-col gap-1"> {tabs.map(tab => ( <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-4 py-3 rounded-xl text-left transition ${activeTab === tab.id ? 'bg-indigo-50 text-indigo-600' : 'text-slate-600 hover:bg-slate-50'}`}>{tab.label}</button> ))} </aside> <main className="flex-1 overflow-auto p-6 bg-slate-50"> {activeTab === 'questions' && currentQuiz && ( <div className="space-y-4 max-w-3xl"> <input type="text" value={currentQuiz.description} onChange={e => updateCurrentQuiz({ description: e.target.value })} placeholder="Описание квиза" className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl" /> <div className="space-y-2"> {currentQuiz.questions.map((q, i) => ( <div key={q.id} draggable onDragStart={() => setDraggedQuestion(q.id)} onDragOver={(e) => handleDragOver(e, q.id)} onDragEnd={() => setDraggedQuestion(null)} onClick={() => setSelectedQuestionId(q.id)} className={`p-4 bg-white border rounded-xl cursor-pointer transition ${selectedQuestionId === q.id ? 'border-indigo-500 ring-2 ring-indigo-100' : 'border-slate-200 hover:border-indigo-300'} ${draggedQuestion === q.id ? 'opacity-50' : ''}`}> <div className="flex items-center justify-between"> <div className="flex items-center gap-3"> <span className="w-8 h-8 flex items-center justify-center bg-indigo-100 rounded-lg text-indigo-600 font-medium">{i + 1}</span> <div> <div className="font-medium text-slate-800">{q.question}</div> <div className="text-xs text-slate-500">{questionTypes.find(t => t.value === q.type)?.label} • {q.points} баллов</div> </div> </div> <button onClick={(e) => { e.stopPropagation(); removeQuestion(q.id); }} className="p-2 text-slate-400 hover:text-red-500">✕</button> </div> </div> ))} </div> <div className="flex gap-2 flex-wrap"> <span className="text-sm text-slate-500 self-center">Добавить:</span> {questionTypes.slice(0, 6).map(type => ( <button key={type.value} onClick={() => addQuestion(type.value)} className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm hover:border-indigo-400">{type.icon} {type.label}</button> ))} </div> </div> )} {activeTab === 'flow' && currentQuiz && ( <div className="space-y-6 max-w-3xl"> <div className="bg-white p-6 rounded-2xl border border-slate-200"> <h3 className="font-semibold mb-4">Результаты квиза</h3> {currentQuiz.results.length === 0 ? <p className="text-slate-500 mb-4">Добавьте результаты.</p> : <div className="space-y-3 mb-4"> {currentQuiz.results.map(r => ( <div key={r.id} className="p-4 bg-slate-50 rounded-xl"> <input type="text" value={r.title} onChange={e => updateResult(r.id, { title: e.target.value })} className="w-full font-medium mb-2 bg-transparent" /> <input type="text" value={r.description} onChange={e => updateResult(r.id, { description: e.target.value })} className="w-full text-sm text-slate-500 bg-transparent mb-2" /> <div className="flex gap-2"> <input type="number" value={r.minScore} onChange={e => updateResult(r.id, { minScore: parseInt(e.target.value) })} className="w-20 px-2 py-1 bg-white border border-slate-200 rounded text-sm" placeholder="Мин" /> <input type="number" value={r.maxScore} onChange={e => updateResult(r.id, { maxScore: parseInt(e.target.value) })} className="w-20 px-2 py-1 bg-white border border-slate-200 rounded text-sm" placeholder="Макс" /> <button onClick={() => removeResult(r.id)} className="text-red-500 text-sm ml-auto">Удалить</button> </div> </div> ))} </div>} <button onClick={addResult} className="px-4 py-2 bg-indigo-100 text-indigo-600 rounded-lg hover:bg-indigo-200">+ Добавить результат</button> </div> </div> )} {activeTab === 'design' && currentQuiz && ( <div className="grid grid-cols-2 gap-6 max-w-4xl"> <div className="space-y-4"> <h3 className="font-semibold">Цвета</h3> <div className="space-y-3"> {['primaryColor', 'accentColor', 'backgroundColor', 'buttonColor'].map(c => ( <div key={c}><label className="text-sm text-slate-500">{c.replace('Color', '')}</label><input type="color" value={currentQuiz.design[c as keyof QuizDesign] as string} onChange={e => updateDesign({ [c]: e.target.value })} className="w-full h-10 rounded-lg cursor-pointer mt-1" /></div> ))} </div> <div className="bg-white p-6 rounded-2xl border border-slate-200"> <h3 className="font-semibold mb-4">Превью</h3> <div className="p-6 rounded-xl border border-slate-200" style={{ background: currentQuiz.design.backgroundColor }}> <h4 className="font-bold mb-2" style={{ color: currentQuiz.design.primaryColor }}>{currentQuiz.title || 'Название'}</h4> <p className="text-sm opacity-70 mb-4">{currentQuiz.description || 'Описание'}</p> <div className="space-y-2 mb-4"><div className="p-3 rounded-lg bg-black/10">Вариант 1</div><div className="p-3 rounded-lg bg-black/10">Вариант 2</div></div> <button className="w-full py-3 font-medium rounded-xl" style={{ background: currentQuiz.design.buttonColor, color: '#fff' }}>Далее</button> </div> </div> </div> )} {activeTab === 'settings' && currentQuiz && ( <div className="space-y-6 max-w-xl"> <div className="bg-white p-6 rounded-2xl border border-slate-200 space-y-4"> <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl cursor-pointer"><input type="checkbox" checked={currentQuiz.settings.shuffleQuestions} onChange={e => updateSettings({ shuffleQuestions: e.target.checked })} className="w-5 h-5 accent-indigo-600" />Перемешать вопросы</label> <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl cursor-pointer"><input type="checkbox" checked={currentQuiz.settings.showResults} onChange={e => updateSettings({ showResults: e.target.checked })} className="w-5 h-5 accent-indigo-600" />Показать результаты</label> <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl cursor-pointer"><input type="checkbox" checked={currentQuiz.settings.collectEmail} onChange={e => updateSettings({ collectEmail: e.target.checked })} className="w-5 h-5 accent-indigo-600" />Сбор email</label> </div> <div className="bg-white p-6 rounded-2xl border border-slate-200"> <h3 className="font-semibold mb-4">Статистика</h3> <div className="grid grid-cols-3 gap-4"> <div className="text-center p-4 bg-slate-50 rounded-xl"><div className="text-2xl font-bold text-indigo-600">{currentQuiz.questions.length}</div><div className="text-xs text-slate-500">Вопросов</div></div> <div className="text-center p-4 bg-slate-50 rounded-xl"><div className="text-2xl font-bold text-cyan-600">{currentQuiz.questions.reduce((s, q) => s + q.points, 0)}</div><div className="text-xs text-slate-500">Баллов</div></div> <div className="text-center p-4 bg-slate-50 rounded-xl"><div className="text-2xl font-bold text-green-600">{currentQuiz.results.length}</div><div className="text-xs text-slate-500">Результатов</div></div> </div> </div> </div> )} </main> {selectedQuestion && ( <aside className="w-80 bg-white border-l border-slate-200 p-4 overflow-auto"> <h3 className="font-semibold mb-4">Редактор вопроса</h3> <div className="space-y-4"> <div><label className="text-xs text-slate-500">Тип</label><select value={selectedQuestion.type} onChange={e => updateQuestion(selectedQuestion.id, { type: e.target.value as QuestionType })} className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg">{questionTypes.map(t => (<option key={t.value} value={t.value}>{t.icon} {t.label}</option>))}</select></div> <div><label className="text-xs text-slate-500">Вопрос</label><textarea value={selectedQuestion.question} onChange={e => updateQuestion(selectedQuestion.id, { question: e.target.value })} className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg resize-none" rows={2} /></div> <div className="flex gap-2"><div className="flex-1"><label className="text-xs text-slate-500">Баллы</label><input type="number" value={selectedQuestion.points} onChange={e => updateQuestion(selectedQuestion.id, { points: parseInt(e.target.value) || 0 })} className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg" /></div><label className="flex items-center gap-2 mt-6"><input type="checkbox" checked={selectedQuestion.required} onChange={e => updateQuestion(selectedQuestion.id, { required: e.target.checked })} /><span className="text-sm">Обяз.</span></label></div> {(selectedQuestion.type === 'multiple_choice' || selectedQuestion.type === 'multi_select') && (<div><label className="text-xs text-slate-500">Варианты</label><div className="space-y-2 mt-2">{selectedQuestion.options?.map((opt, i) => (<div key={opt.id} className="flex gap-2"><input type="text" value={opt.text} onChange={e => updateOption(selectedQuestion.id, opt.id, e.target.value)} placeholder={`Вариант ${i + 1}`} className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" /><button onClick={() => removeOption(selectedQuestion.id, opt.id)} className="text-slate-400">✕</button></div>))}<button onClick={() => addOption(selectedQuestion.id)} className="text-sm text-indigo-600">+ Добавить</button></div></div>} </div> </aside> )} </div> {showPreview && currentQuiz && ( <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"> <div className="bg-white rounded-2xl max-w-xl w-full max-h-[90vh] overflow-auto"> <div className="p-6 border-b border-slate-200 flex items-center justify-between"> <h2 className="font-semibold text-lg">{currentQuiz.title}</h2> <button onClick={() => setShowPreview(false)} className="text-2xl">&times;</button> </div> {!showResult ? ( <div className="p-6"> {currentQuiz.design.showProgress && (<div className="h-2 bg-slate-100 rounded-full mb-6"><div className="h-full bg-indigo-600 rounded-full transition-all" style={{ width: `${((previewCurrentQuestion + 1) / currentQuiz.questions.length) * 100}%` }} /></div>)} {currentQuiz.questions[previewCurrentQuestion] && ( <div> <p className="text-lg font-medium mb-4">{previewCurrentQuestion + 1}. {currentQuiz.questions[previewCurrentQuestion].question}</p> {(currentQuiz.questions[previewCurrentQuestion].type === 'multiple_choice' || currentQuiz.questions[previewCurrentQuestion].type === 'yes_no') && (<div className="space-y-2">{currentQuiz.questions[previewCurrentQuestion].options?.map(opt => (<button key={opt.id} onClick={() => handlePreviewAnswer(opt.text)} className="w-full p-4 text-left border border-slate-200 rounded-xl hover:border-indigo-500 hover:bg-indigo-50">{opt.text}</button>))}</div>)} {(currentQuiz.questions[previewCurrentQuestion].type === 'scale' || currentQuiz.questions[previewCurrentQuestion].type === 'rating') && (<div className="flex gap-2 flex-wrap">{Array.from({ length: currentQuiz.questions[previewCurrentQuestion].max || 10 }, (_, i) => i + 1).map(n => (<button key={n} onClick={() => handlePreviewAnswer(n)} className="w-12 h-12 border border-slate-200 rounded-xl hover:border-indigo-500 hover:bg-indigo-50">{n}</button>))}</div>)} {(currentQuiz.questions[previewCurrentQuestion].type === 'text' || currentQuiz.questions[previewCurrentQuestion].type === 'email' || currentQuiz.questions[previewCurrentQuestion].type === 'number') && (<div><input type={currentQuiz.questions[previewCurrentQuestion].type === 'number' ? 'number' : 'text'} value={textAnswer} onChange={e => setTextAnswer(e.target.value)} placeholder="Ваш ответ" className="w-full p-4 border border-slate-200 rounded-xl mb-2" /><button onClick={() => handlePreviewAnswer(textAnswer)} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700">Далее</button></div>)} </div>)} </div> ) : ( <div className="p-6 text-center"> <div className="text-6xl mb-4">🎉</div> <h3 className="text-2xl font-bold mb-2">Результат</h3> {getPreviewResult() ? (<><h4 className="text-xl font-semibold text-indigo-600 mb-2">{getPreviewResult()?.title}</h4><p className="text-slate-500">{getPreviewResult()?.description}</p></>) : <p className="text-slate-500">Вы набрали {previewScore} баллов</p>} <p className="mt-4 text-sm text-slate-500">Баллы: {previewScore} / {currentQuiz.questions.reduce((s, q) => s + q.points, 0)}</p> <button onClick={() => setShowPreview(false)} className="mt-6 px-6 py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700">Закрыть</button> </div> )} </div> </div> )} </div> );
 }

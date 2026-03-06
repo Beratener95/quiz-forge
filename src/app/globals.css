@@ -1,31 +1,39 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0a0a0f;
-  --surface: #16161f;
-  --surface-hover: #1e1e2a;
+  --background: #f8fafc;
+  --surface: #ffffff;
+  --surface-hover: #f1f5f9;
+  --surface-alt: #e2e8f0;
   --primary: #6366f1;
-  --primary-hover: #818cf8;
-  --accent: #22d3ee;
-  --text: #f8fafc;
+  --primary-hover: #4f46e5;
+  --primary-light: #e0e7ff;
+  --accent: #06b6d4;
+  --text: #1e293b;
+  --text-secondary: #64748b;
   --muted: #94a3b8;
-  --border: #2e2e3a;
+  --border: #e2e8f0;
   --success: #10b981;
   --error: #ef4444;
+  --warning: #f59e0b;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
   --color-surface-hover: var(--surface-hover);
+  --color-surface-alt: var(--surface-alt);
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
+  --color-primary-light: var(--primary-light);
   --color-accent: var(--accent);
   --color-text: var(--text);
+  --color-text-secondary: var(--text-secondary);
   --color-muted: var(--muted);
   --color-border: var(--border);
   --color-success: var(--success);
   --color-error: var(--error);
+  --color-warning: var(--warning);
   --font-heading: var(--font-outfit);
   --font-body: var(--font-dm-sans);
 }
@@ -46,9 +54,64 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .glow {
-  box-shadow: 0 0 40px rgba(99, 102, 241, 0.15);
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.1);
 }
 
 .glow-accent {
-  box-shadow: 0 0 20px rgba(34, 211, 238, 0.2);
+  box-shadow: 0 4px 20px rgba(6, 182, 212, 0.1);
+}
+
+.card {
+  background: var(--surface);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: var(--surface);
+  color: var(--text);
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background: var(--surface-hover);
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.sidebar-item:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.sidebar-item.active {
+  background: var(--primary-light);
+  color: var(--primary);
 }
